@@ -97,7 +97,12 @@ request(From, Host, Port, Ssl, Path, Method, Hdrs, Body, Options) ->
             {response, self(), {error, connection_closed}};
         error:Reason ->
             Stack = erlang:get_stacktrace(),
-            {response, self(), {error, {Reason, Stack}}}
+            {response, self(), {error, {Reason, Stack}}};
+        E:R:S ->
+            Params = {From, Host, Port, Ssl, Path, Method, Hdrs, Body, Options},
+            case {response, self(), {error, {{E,R}, {opt, Params, S}}}} of
+                nomatch -> ok
+            end
     end,
     case Result of
         {response, _, {ok, {no_return, _}}} -> ok;
@@ -217,7 +222,8 @@ send_request(#client_state{socket = undefined} = State) ->
         {error, 'record overflow'} ->
             throw(ssl_error);
         {error, Reason} ->
-            erlang:error(Reason)
+            D = {Host, Port, SocketOptions, Timeout, Ssl},
+            erlang:error({D, Reason})
     catch
         exit:{{{badmatch, {error, {asn1, _}}}, _}, _} ->
             throw(ssl_decode_error);
